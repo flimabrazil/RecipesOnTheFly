@@ -460,15 +460,13 @@
         const API_CONFIG = {
             edamam: {
                 name: 'Edamam',
-                baseUrl: 'https://api.edamam.com/api/recipes/v2',
-                appId: '21b5a5e8', // Você precisa se registrar em https://developer.edamam.com/
-                appKey: '66feef7acd3d62dc907137f0b8988409',
-                searchEndpoint: (query) => `https://api.edamam.com/api/recipes/v2?type=public&q=${query}&app_id=${API_CONFIG.edamam.appId}&app_key=${API_CONFIG.edamam.appKey}`
+                // Usando proxy local
+                searchEndpoint: (query) => `http://localhost:3002/edamam?q=${encodeURIComponent(query)}`
             },
             spoonacular: {
                 name: 'Spoonacular',
                 baseUrl: 'https://api.spoonacular.com/recipes',
-                apiKey: 'YOUR_SPOONACULAR_API_KEY', // Você precisa se registrar em https://spoonacular.com/food-api
+                apiKey: 'YOUR_SPOONACULAR_API_KEY',
                 searchEndpoint: (query) => `https://api.spoonacular.com/recipes/complexSearch?query=${query}&apiKey=${API_CONFIG.spoonacular.apiKey}&number=20&addRecipeInformation=true`
             },
             themealdb: {
@@ -591,14 +589,10 @@
         }
 
         // Função para buscar receitas do Edamam
-        async function fetchEdamamRecipes() {
-            if (API_CONFIG.edamam.appId === 'YOUR_EDAMAM_APP_ID') {
-                throw new Error('API key não configurada');
-            }
-
-            const response = await fetch(API_CONFIG.edamam.searchEndpoint('pasta'));
+        async function fetchEdamamRecipes(query = 'pasta') {
+            const response = await fetch(API_CONFIG.edamam.searchEndpoint(query));
             const data = await response.json();
-            
+            if (!data.hits) return [];
             return data.hits.map(hit => ({
                 id: hit.recipe.uri.split('#recipe_')[1],
                 title: hit.recipe.label,
