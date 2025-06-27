@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🍳 App de Receitas</title>
+    <title>🍳 App de Receitas Dinâmico</title>
     <style>
         * {
             margin: 0;
@@ -38,6 +38,44 @@
         .header p {
             font-size: 1.2rem;
             opacity: 0.9;
+        }
+
+        .api-selector {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .api-selector h3 {
+            color: white;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .api-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .api-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .api-btn.active, .api-btn:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: white;
         }
 
         .search-bar {
@@ -96,6 +134,38 @@
         .filter-btn.active, .filter-btn:hover {
             background: rgba(255,255,255,0.3);
             border-color: white;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+            margin: 40px 0;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(255,0,0,0.1);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin: 20px 0;
+            border: 1px solid rgba(255,0,0,0.3);
         }
 
         .recipes-grid {
@@ -277,6 +347,32 @@
             color: #555;
         }
 
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .pagination button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 10px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .pagination button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -299,8 +395,18 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🍳 App de Receitas</h1>
-            <p>Descubra receitas deliciosas e fáceis de fazer</p>
+            <h1>🍳 App de Receitas Dinâmico</h1>
+            <p>Busque receitas de múltiplas fontes em tempo real</p>
+        </div>
+
+        <div class="api-selector">
+            <h3>Escolha a fonte de receitas:</h3>
+            <div class="api-buttons">
+                <button class="api-btn active" onclick="switchAPI('edamam')">🍽️ Edamam</button>
+                <button class="api-btn" onclick="switchAPI('spoonacular')">🥄 Spoonacular</button>
+                <button class="api-btn" onclick="switchAPI('themealdb')">🍕 TheMealDB</button>
+                <button class="api-btn" onclick="switchAPI('local')">📁 Local</button>
+            </div>
         </div>
 
         <div class="search-bar">
@@ -310,14 +416,29 @@
 
         <div class="filters">
             <button class="filter-btn active" onclick="filterRecipes('all')">Todas</button>
-            <button class="filter-btn" onclick="filterRecipes('entrada')">Entradas</button>
-            <button class="filter-btn" onclick="filterRecipes('prato-principal')">Pratos Principais</button>
-            <button class="filter-btn" onclick="filterRecipes('sobremesa')">Sobremesas</button>
-            <button class="filter-btn" onclick="filterRecipes('bebida')">Bebidas</button>
+            <button class="filter-btn" onclick="filterRecipes('main')">Pratos Principais</button>
+            <button class="filter-btn" onclick="filterRecipes('dessert')">Sobremesas</button>
+            <button class="filter-btn" onclick="filterRecipes('drink')">Bebidas</button>
+            <button class="filter-btn" onclick="filterRecipes('appetizer')">Entradas</button>
+        </div>
+
+        <div id="loadingMessage" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Carregando receitas...</p>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;">
+            Erro ao carregar receitas. Tente novamente.
         </div>
 
         <div class="recipes-grid" id="recipesGrid">
             <!-- Receitas serão carregadas aqui -->
+        </div>
+
+        <div class="pagination" id="pagination" style="display: none;">
+            <button onclick="previousPage()" id="prevBtn">← Anterior</button>
+            <span id="pageInfo" style="color: white; padding: 10px;"></span>
+            <button onclick="nextPage()" id="nextBtn">Próximo →</button>
         </div>
     </div>
 
@@ -335,12 +456,34 @@
     </div>
 
     <script>
-        // Dados das receitas
-        const recipes = [
+        // Configuração das APIs
+        const API_CONFIG = {
+            edamam: {
+                name: 'Edamam',
+                baseUrl: 'https://api.edamam.com/api/recipes/v2',
+                appId: '21b5a5e8', // Você precisa se registrar em https://developer.edamam.com/
+                appKey: '66feef7acd3d62dc907137f0b8988409',
+                searchEndpoint: (query) => `https://api.edamam.com/api/recipes/v2?type=public&q=${query}&app_id=${API_CONFIG.edamam.appId}&app_key=${API_CONFIG.edamam.appKey}`
+            },
+            spoonacular: {
+                name: 'Spoonacular',
+                baseUrl: 'https://api.spoonacular.com/recipes',
+                apiKey: 'YOUR_SPOONACULAR_API_KEY', // Você precisa se registrar em https://spoonacular.com/food-api
+                searchEndpoint: (query) => `https://api.spoonacular.com/recipes/complexSearch?query=${query}&apiKey=${API_CONFIG.spoonacular.apiKey}&number=20&addRecipeInformation=true`
+            },
+            themealdb: {
+                name: 'TheMealDB',
+                baseUrl: 'https://www.themealdb.com/api/json/v1/1',
+                searchEndpoint: (query) => `https://www.themealdb.com/api/json/v1/1/search.php?s=${query}`
+            }
+        };
+
+        // Receitas locais como fallback
+        const LOCAL_RECIPES = [
             {
                 id: 1,
                 title: "Pasta Carbonara",
-                category: "prato-principal",
+                category: "main",
                 image: "https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=400&h=300&fit=crop",
                 time: "25 min",
                 difficulty: "Médio",
@@ -363,162 +506,196 @@
                     "Sirva imediatamente com pimenta preta por cima"
                 ],
                 tags: ["Italiana", "Pasta", "Cremoso"]
-            },
-            {
-                id: 2,
-                title: "Bruschetta de Tomate",
-                category: "entrada",
-                image: "https://images.unsplash.com/photo-1572445271230-a78b5944a659?w=400&h=300&fit=crop",
-                time: "15 min",
-                difficulty: "Fácil",
-                servings: "6 pessoas",
-                description: "Entrada italiana refrescante com tomates frescos e manjericão.",
-                ingredients: [
-                    "6 fatias de pão italiano",
-                    "4 tomates maduros",
-                    "2 dentes de alho",
-                    "Folhas de manjericão",
-                    "Azeite de oliva",
-                    "Sal e pimenta a gosto"
-                ],
-                instructions: [
-                    "Toaste as fatias de pão até ficarem douradas",
-                    "Pique os tomates em cubos pequenos",
-                    "Amasse o alho e misture com os tomates",
-                    "Adicione o manjericão picado e tempere com sal e pimenta",
-                    "Regue com azeite de oliva",
-                    "Distribua a mistura sobre as fatias de pão"
-                ],
-                tags: ["Italiana", "Vegetariana", "Fresco"]
-            },
-            {
-                id: 3,
-                title: "Tiramisu",
-                category: "sobremesa",
-                image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&h=300&fit=crop",
-                time: "30 min + 4h gelar",
-                difficulty: "Médio",
-                servings: "8 pessoas",
-                description: "Sobremesa italiana clássica com café, mascarpone e cacau.",
-                ingredients: [
-                    "6 ovos",
-                    "500g de mascarpone",
-                    "200g de açúcar",
-                    "200g de biscoitos tipo champanhe",
-                    "2 xícaras de café forte",
-                    "Cacau em pó para polvilhar"
-                ],
-                instructions: [
-                    "Separe as claras das gemas",
-                    "Bata as gemas com metade do açúcar até ficar claro",
-                    "Misture o mascarpone às gemas batidas",
-                    "Bata as claras com o restante do açúcar até formar picos firmes",
-                    "Dobre as claras na mistura de mascarpone",
-                    "Mergulhe os biscoitos no café e forre o fundo de uma forma",
-                    "Cubra com metade da mistura de mascarpone",
-                    "Repita as camadas e polvilhe com cacau",
-                    "Leve à geladeira por pelo menos 4 horas"
-                ],
-                tags: ["Italiana", "Café", "Cremoso"]
-            },
-            {
-                id: 4,
-                title: "Caipirinha",
-                category: "bebida",
-                image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=300&fit=crop",
-                time: "5 min",
-                difficulty: "Fácil",
-                servings: "1 pessoa",
-                description: "Cocktail brasileiro tradicional com cachaça, limão e açúcar.",
-                ingredients: [
-                    "1 limão tahiti",
-                    "2 colheres de açúcar",
-                    "60ml de cachaça",
-                    "Gelo a gosto"
-                ],
-                instructions: [
-                    "Corte o limão em rodelas e coloque no copo",
-                    "Adicione o açúcar e amasse levemente",
-                    "Adicione a cachaça e misture",
-                    "Complete com gelo e mexa novamente",
-                    "Sirva imediatamente"
-                ],
-                tags: ["Brasileira", "Alcoólica", "Refrescante"]
-            },
-            {
-                id: 5,
-                title: "Risoto de Funghi",
-                category: "prato-principal",
-                image: "https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=400&h=300&fit=crop",
-                time: "35 min",
-                difficulty: "Médio",
-                servings: "4 pessoas",
-                description: "Risoto cremoso com cogumelos e queijo parmesão.",
-                ingredients: [
-                    "300g de arroz arbóreo",
-                    "400g de cogumelos variados",
-                    "1 cebola picada",
-                    "2 dentes de alho",
-                    "1L de caldo de legumes",
-                    "100g de queijo parmesão",
-                    "50g de manteiga",
-                    "Azeite de oliva",
-                    "Sal e pimenta a gosto"
-                ],
-                instructions: [
-                    "Refogue a cebola e o alho no azeite",
-                    "Adicione os cogumelos e refogue até murcharem",
-                    "Adicione o arroz e mexa até ficar translúcido",
-                    "Adicione o caldo quente, uma concha por vez",
-                    "Continue mexendo até o arroz ficar cremoso",
-                    "Adicione a manteiga e o queijo parmesão",
-                    "Ajuste o sal e a pimenta"
-                ],
-                tags: ["Italiana", "Vegetariana", "Cremoso"]
-            },
-            {
-                id: 6,
-                title: "Panna Cotta",
-                category: "sobremesa",
-                image: "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&h=300&fit=crop",
-                time: "20 min + 4h gelar",
-                difficulty: "Fácil",
-                servings: "6 pessoas",
-                description: "Sobremesa italiana suave e cremosa com calda de frutas.",
-                ingredients: [
-                    "500ml de creme de leite",
-                    "100g de açúcar",
-                    "2 folhas de gelatina",
-                    "1 baunilha",
-                    "Calda de frutas vermelhas"
-                ],
-                instructions: [
-                    "Hidrate a gelatina em água fria",
-                    "Aqueça o creme de leite com o açúcar e a baunilha",
-                    "Adicione a gelatina hidratada e mexa até dissolver",
-                    "Distribua em taças individuais",
-                    "Leve à geladeira por 4 horas",
-                    "Sirva com calda de frutas vermelhas"
-                ],
-                tags: ["Italiana", "Cremoso", "Elegante"]
             }
         ];
 
+        let currentAPI = 'edamam';
         let currentFilter = 'all';
-        let filteredRecipes = [...recipes];
+        let currentPage = 0;
+        let recipes = [];
+        let filteredRecipes = [];
+        let totalPages = 0;
+
+        // Função para alternar entre APIs
+        function switchAPI(apiName) {
+            currentAPI = apiName;
+            
+            // Atualizar botões ativos
+            document.querySelectorAll('.api-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Limpar resultados anteriores
+            document.getElementById('recipesGrid').innerHTML = '';
+            document.getElementById('pagination').style.display = 'none';
+            
+            // Mostrar mensagem de instrução
+            if (apiName === 'edamam' || apiName === 'spoonacular') {
+                showMessage('Para usar esta API, você precisa se registrar e adicionar suas chaves de API no código.', 'info');
+            } else {
+                // Carregar receitas da API selecionada
+                loadRecipes();
+            }
+        }
+
+        // Função para mostrar mensagens
+        function showMessage(message, type = 'error') {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            errorDiv.style.background = type === 'info' ? 'rgba(0,123,255,0.1)' : 'rgba(255,0,0,0.1)';
+            errorDiv.style.borderColor = type === 'info' ? 'rgba(0,123,255,0.3)' : 'rgba(255,0,0,0.3)';
+        }
+
+        // Função para carregar receitas
+        async function loadRecipes() {
+            const loadingDiv = document.getElementById('loadingMessage');
+            const errorDiv = document.getElementById('errorMessage');
+            
+            loadingDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+
+            try {
+                let apiRecipes = [];
+
+                switch (currentAPI) {
+                    case 'edamam':
+                        apiRecipes = await fetchEdamamRecipes();
+                        break;
+                    case 'spoonacular':
+                        apiRecipes = await fetchSpoonacularRecipes();
+                        break;
+                    case 'themealdb':
+                        apiRecipes = await fetchTheMealDBRecipes();
+                        break;
+                    case 'local':
+                        apiRecipes = LOCAL_RECIPES;
+                        break;
+                }
+
+                recipes = apiRecipes;
+                filteredRecipes = [...recipes];
+                currentPage = 0;
+                totalPages = Math.ceil(filteredRecipes.length / 12);
+
+                renderRecipes();
+                renderPagination();
+
+            } catch (error) {
+                console.error('Erro ao carregar receitas:', error);
+                showMessage('Erro ao carregar receitas. Verifique sua conexão com a internet.');
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        // Função para buscar receitas do Edamam
+        async function fetchEdamamRecipes() {
+            if (API_CONFIG.edamam.appId === 'YOUR_EDAMAM_APP_ID') {
+                throw new Error('API key não configurada');
+            }
+
+            const response = await fetch(API_CONFIG.edamam.searchEndpoint('pasta'));
+            const data = await response.json();
+            
+            return data.hits.map(hit => ({
+                id: hit.recipe.uri.split('#recipe_')[1],
+                title: hit.recipe.label,
+                category: hit.recipe.mealType?.[0] || 'main',
+                image: hit.recipe.image,
+                time: `${Math.round(hit.recipe.totalTime)} min`,
+                difficulty: 'Médio',
+                servings: `${hit.recipe.yield} pessoas`,
+                description: hit.recipe.source,
+                ingredients: hit.recipe.ingredientLines,
+                instructions: hit.recipe.instructions ? hit.recipe.instructions.split('\n') : ['Instruções não disponíveis'],
+                tags: hit.recipe.dietLabels.concat(hit.recipe.cuisineType || [])
+            }));
+        }
+
+        // Função para buscar receitas do Spoonacular
+        async function fetchSpoonacularRecipes() {
+            if (API_CONFIG.spoonacular.apiKey === 'YOUR_SPOONACULAR_API_KEY') {
+                throw new Error('API key não configurada');
+            }
+
+            const response = await fetch(API_CONFIG.spoonacular.searchEndpoint('pasta'));
+            const data = await response.json();
+            
+            return data.results.map(recipe => ({
+                id: recipe.id,
+                title: recipe.title,
+                category: recipe.dishTypes?.[0] || 'main',
+                image: recipe.image,
+                time: `${recipe.readyInMinutes} min`,
+                difficulty: recipe.preparationMinutes > 30 ? 'Difícil' : recipe.preparationMinutes > 15 ? 'Médio' : 'Fácil',
+                servings: `${recipe.servings} pessoas`,
+                description: recipe.summary.replace(/<[^>]*>/g, '').substring(0, 150) + '...',
+                ingredients: recipe.extendedIngredients.map(ing => `${ing.amount} ${ing.unit} ${ing.name}`),
+                instructions: recipe.analyzedInstructions?.[0]?.steps.map(step => step.step) || ['Instruções não disponíveis'],
+                tags: recipe.dishTypes || []
+            }));
+        }
+
+        // Função para buscar receitas do TheMealDB
+        async function fetchTheMealDBRecipes() {
+            const response = await fetch(API_CONFIG.themealdb.searchEndpoint('pasta'));
+            const data = await response.json();
+            
+            if (!data.meals) {
+                return [];
+            }
+
+            return data.meals.map(meal => ({
+                id: meal.idMeal,
+                title: meal.strMeal,
+                category: meal.strCategory?.toLowerCase() || 'main',
+                image: meal.strMealThumb,
+                time: '30 min',
+                difficulty: 'Médio',
+                servings: '4 pessoas',
+                description: meal.strInstructions?.substring(0, 150) + '...',
+                ingredients: extractIngredients(meal),
+                instructions: meal.strInstructions?.split('\n').filter(step => step.trim()) || ['Instruções não disponíveis'],
+                tags: [meal.strCategory, meal.strArea].filter(Boolean)
+            }));
+        }
+
+        // Função para extrair ingredientes do TheMealDB
+        function extractIngredients(meal) {
+            const ingredients = [];
+            for (let i = 1; i <= 20; i++) {
+                const ingredient = meal[`strIngredient${i}`];
+                const measure = meal[`strMeasure${i}`];
+                if (ingredient && ingredient.trim()) {
+                    ingredients.push(`${measure || ''} ${ingredient}`.trim());
+                }
+            }
+            return ingredients;
+        }
 
         // Função para renderizar as receitas
         function renderRecipes() {
             const grid = document.getElementById('recipesGrid');
             grid.innerHTML = '';
 
-            filteredRecipes.forEach(recipe => {
+            const startIndex = currentPage * 12;
+            const endIndex = startIndex + 12;
+            const pageRecipes = filteredRecipes.slice(startIndex, endIndex);
+
+            if (pageRecipes.length === 0) {
+                grid.innerHTML = '<div style="text-align: center; color: white; grid-column: 1/-1; padding: 40px;">Nenhuma receita encontrada.</div>';
+                return;
+            }
+
+            pageRecipes.forEach(recipe => {
                 const card = document.createElement('div');
                 card.className = 'recipe-card';
                 card.onclick = () => openModal(recipe);
 
                 card.innerHTML = `
-                    <img src="${recipe.image}" alt="${recipe.title}" class="recipe-image">
+                    <img src="${recipe.image}" alt="${recipe.title}" class="recipe-image" onerror="this.src='https://via.placeholder.com/400x300/f0f0f0/999?text=Sem+Imagem'">
                     <div class="recipe-content">
                         <h3 class="recipe-title">${recipe.title}</h3>
                         <div class="recipe-meta">
@@ -528,7 +705,7 @@
                         </div>
                         <p class="recipe-description">${recipe.description}</p>
                         <div class="recipe-tags">
-                            ${recipe.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                            ${recipe.tags.slice(0, 3).map(tag => `<span class="tag">${tag}</span>`).join('')}
                         </div>
                     </div>
                 `;
@@ -537,9 +714,28 @@
             });
         }
 
+        // Função para renderizar paginação
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            const pageInfo = document.getElementById('pageInfo');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+
+            if (totalPages <= 1) {
+                pagination.style.display = 'none';
+                return;
+            }
+
+            pagination.style.display = 'flex';
+            pageInfo.textContent = `Página ${currentPage + 1} de ${totalPages}`;
+            prevBtn.disabled = currentPage === 0;
+            nextBtn.disabled = currentPage === totalPages - 1;
+        }
+
         // Função para filtrar receitas
         function filterRecipes(category) {
             currentFilter = category;
+            currentPage = 0;
             
             // Atualizar botões ativos
             document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -554,24 +750,78 @@
                 filteredRecipes = recipes.filter(recipe => recipe.category === category);
             }
 
+            totalPages = Math.ceil(filteredRecipes.length / 12);
             renderRecipes();
+            renderPagination();
         }
 
         // Função para buscar receitas
-        function searchRecipes() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        async function searchRecipes() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
             
             if (searchTerm === '') {
-                filteredRecipes = currentFilter === 'all' ? [...recipes] : recipes.filter(recipe => recipe.category === currentFilter);
-            } else {
-                filteredRecipes = recipes.filter(recipe => 
-                    recipe.title.toLowerCase().includes(searchTerm) ||
-                    recipe.description.toLowerCase().includes(searchTerm) ||
-                    recipe.tags.some(tag => tag.toLowerCase().includes(searchTerm))
-                );
+                await loadRecipes();
+                return;
             }
 
-            renderRecipes();
+            const loadingDiv = document.getElementById('loadingMessage');
+            const errorDiv = document.getElementById('errorMessage');
+            
+            loadingDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+
+            try {
+                let apiRecipes = [];
+
+                switch (currentAPI) {
+                    case 'edamam':
+                        apiRecipes = await fetchEdamamRecipes(searchTerm);
+                        break;
+                    case 'spoonacular':
+                        apiRecipes = await fetchSpoonacularRecipes(searchTerm);
+                        break;
+                    case 'themealdb':
+                        apiRecipes = await fetchTheMealDBRecipes(searchTerm);
+                        break;
+                    case 'local':
+                        apiRecipes = LOCAL_RECIPES.filter(recipe => 
+                            recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            recipe.description.toLowerCase().includes(searchTerm.toLowerCase())
+                        );
+                        break;
+                }
+
+                recipes = apiRecipes;
+                filteredRecipes = [...recipes];
+                currentPage = 0;
+                totalPages = Math.ceil(filteredRecipes.length / 12);
+
+                renderRecipes();
+                renderPagination();
+
+            } catch (error) {
+                console.error('Erro na busca:', error);
+                showMessage('Erro ao buscar receitas. Tente novamente.');
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        // Funções de paginação
+        function previousPage() {
+            if (currentPage > 0) {
+                currentPage--;
+                renderRecipes();
+                renderPagination();
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages - 1) {
+                currentPage++;
+                renderRecipes();
+                renderPagination();
+            }
         }
 
         // Função para abrir modal
@@ -626,7 +876,7 @@
         });
 
         // Inicializar o app
-        renderRecipes();
+        loadRecipes();
     </script>
 </body>
 </html> 
