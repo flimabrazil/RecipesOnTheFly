@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍲 Busca de Receitas Brasileiras</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f7f7fa; margin: 0; }
+        .container { max-width: 900px; margin: 2rem auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); padding: 2rem; }
+        h1 { text-align: center; margin-bottom: 1.5rem; }
+        .search-bar { display: flex; gap: 1rem; margin-bottom: 2rem; }
+        .search-bar input { flex: 1; padding: 0.7rem; border-radius: 6px; border: 1px solid #ccc; font-size: 1.1rem; }
+        .search-bar button { padding: 0.7rem 1.5rem; border-radius: 6px; border: none; background: #667eea; color: #fff; font-size: 1.1rem; cursor: pointer; }
+        .recipes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }
+        .recipe-card { background: #fafaff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+        .recipe-card:hover { transform: translateY(-5px) scale(1.03); }
+        .recipe-image { width: 100%; height: 180px; object-fit: cover; }
+        .recipe-content { padding: 1rem; }
+        .recipe-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .recipe-category { color: #667eea; font-size: 0.95rem; margin-bottom: 0.5rem; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: #fff; border-radius: 16px; max-width: 600px; width: 95vw; padding: 2rem; position: relative; }
+        .close-btn { position: absolute; top: 1rem; right: 1rem; background: #ff4d4d; border: none; color: #fff; border-radius: 50%; width: 40px; height: 40px; font-size: 2rem; font-weight: bold; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
+        .close-btn:hover { background: #d93636; }
+        .modal-image { width: 100%; border-radius: 10px; margin-bottom: 1rem; }
+        .modal h2 { margin-top: 0; }
+        .modal-section { margin-bottom: 1.2rem; }
+        .ingredients-list { columns: 2; font-size: 1rem; }
+        @media (max-width: 600px) {
+            .container { padding: 1rem; }
+            .modal-content { padding: 1rem; }
+            .recipes-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍲 Busca de Receitas Brasileiras</h1>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Buscar receita (ex: chicken, beef, cake)">
+            <button onclick="searchRecipes()">Buscar</button>
+        </div>
+        <div style="color:#555; text-align:center; margin-bottom:1.5rem;">Digite o termo em <b>inglês</b> (ex: chicken, beef, cake, rice, soup, etc)</div>
+        <div class="recipes-grid" id="recipesGrid"></div>
+    </div>
+
+    <div class="modal" id="recipeModal">
+        <div class="modal-content" id="modalContent">
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+            <img id="modalImage" class="modal-image" src="" alt="">
+            <h2 id="modalTitle"></h2>
+            <div class="modal-section" id="modalCategory"></div>
+            <div class="modal-section"><strong>Ingredientes:</strong>
+                <ul class="ingredients-list" id="modalIngredients"></ul>
+            </div>
+            <div class="modal-section"><strong>Modo de preparo:</strong>
+                <div id="modalInstructions"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function traduzirParaIngles(texto) {
+            if (!texto) return '';
+            const res = await fetch('https://libretranslate.de/translate', {
+                method: 'POST',
+                body: JSON.stringify({
+                    q: texto,
+                    source: 'pt',
+                    target: 'en',
+                    format: 'text'
+                }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            return data.translatedText;
+        }
+
+        async function searchRecipes() {
+            let query = document.getElementById('searchInput').value.trim();
+            const grid = document.getElementById('recipesGrid');
+            grid.innerHTML = 'Carregando...';
+            if (!query) {
+                grid.innerHTML = '<p>Digite um termo para buscar receitas.</p>';
+                return;
+            }
+            // Busca diretamente em inglês
+            const res = await fetch(`https://receitas-new-proxy.onrender.com/api/receitas?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            if (!data.meals) {
+                grid.innerHTML = '<p>Nenhuma receita encontrada.</p>';
+                return;
+            }
+            grid.innerHTML = '';
+            data.meals.forEach(meal => {
+                const card = document.createElement('div');
+                card.className = 'recipe-card';
+                card.onclick = () => openModal(meal);
+                card.innerHTML = `
+                    <img src="${meal.strMealThumb}" class="recipe-image" alt="${meal.strMeal}">
+                    <div class="recipe-content">
+                        <div class="recipe-title">${meal.strMeal}</div>
+                        <div class="recipe-category">${meal.strCategory || ''}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openModal(meal) {
+            document.getElementById('modalImage').src = meal.strMealThumb;
+            document.getElementById('modalTitle').textContent = meal.strMeal;
+            document.getElementById('modalCategory').textContent = meal.strCategory ? `Categoria: ${meal.strCategory}` : '';
+            // Ingredientes
+            const ingredients = [];
+            for (let i = 1; i <= 20; i++) {
+                const ing = meal[`strIngredient${i}`];
+                const measure = meal[`strMeasure${i}`];
+                if (ing && ing.trim()) {
+                    ingredients.push(`<li>${ing} ${measure ? `- ${measure}` : ''}</li>`);
+                }
+            }
+            document.getElementById('modalIngredients').innerHTML = ingredients.join('');
+            // Instruções
+            document.getElementById('modalInstructions').textContent = meal.strInstructions || 'N/A';
+            document.getElementById('recipeModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('recipeModal').style.display = 'none';
+        }
+
+        // Fechar modal ao clicar fora do conteúdo
+        window.onclick = function(event) {
+            const modal = document.getElementById('recipeModal');
+            const modalContent = document.getElementById('modalContent');
+            if (event.target === modal) {
+                closeModal();
+            }
+        };
+
+        // Fechar modal ao pressionar ESC
+        window.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Enter para buscar
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') searchRecipes();
+        });
+    </script>
+</body>
+</html> 
