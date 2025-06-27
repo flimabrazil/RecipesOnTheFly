@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍳 App de Receitas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .search-bar {
+            background: white;
+            border-radius: 25px;
+            padding: 15px 25px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .search-bar input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.1rem;
+            padding: 10px;
+        }
+
+        .search-bar button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .search-bar button:hover {
+            transform: translateY(-2px);
+        }
+
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .filter-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .filter-btn.active, .filter-btn:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: white;
+        }
+
+        .recipes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .recipe-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .recipe-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+        }
+
+        .recipe-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            transition: transform 0.3s;
+        }
+
+        .recipe-card:hover .recipe-image {
+            transform: scale(1.05);
+        }
+
+        .recipe-content {
+            padding: 25px;
+        }
+
+        .recipe-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .recipe-meta {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .recipe-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .recipe-description {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .recipe-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            max-width: 800px;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .modal-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .modal-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .recipe-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .ingredients, .instructions {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+        }
+
+        .ingredients h3, .instructions h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .ingredients ul {
+            list-style: none;
+        }
+
+        .ingredients li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+        }
+
+        .ingredients li:before {
+            content: "🍽️";
+            margin-right: 10px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .recipes-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .recipe-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .search-bar {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍳 App de Receitas</h1>
+            <p>Descubra receitas deliciosas e fáceis de fazer</p>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Buscar receitas...">
+            <button onclick="searchRecipes()">🔍 Buscar</button>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" onclick="filterRecipes('all')">Todas</button>
+            <button class="filter-btn" onclick="filterRecipes('entrada')">Entradas</button>
+            <button class="filter-btn" onclick="filterRecipes('prato-principal')">Pratos Principais</button>
+            <button class="filter-btn" onclick="filterRecipes('sobremesa')">Sobremesas</button>
+            <button class="filter-btn" onclick="filterRecipes('bebida')">Bebidas</button>
+        </div>
+
+        <div class="recipes-grid" id="recipesGrid">
+            <!-- Receitas serão carregadas aqui -->
+        </div>
+    </div>
+
+    <!-- Modal para detalhes da receita -->
+    <div class="modal" id="recipeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+                <h2 id="modalTitle">Nome da Receita</h2>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Conteúdo do modal será carregado aqui -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados das receitas
+        const recipes = [
+            {
+                id: 1,
+                title: "Pasta Carbonara",
+                category: "prato-principal",
+                image: "https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=400&h=300&fit=crop",
+                time: "25 min",
+                difficulty: "Médio",
+                servings: "4 pessoas",
+                description: "Uma clássica pasta italiana com ovos, queijo parmesão e bacon crocante.",
+                ingredients: [
+                    "400g de spaghetti",
+                    "200g de bacon em cubos",
+                    "4 ovos",
+                    "100g de queijo parmesão ralado",
+                    "Pimenta preta a gosto",
+                    "Sal a gosto"
+                ],
+                instructions: [
+                    "Cozinhe o spaghetti em água salgada até ficar al dente",
+                    "Em uma frigideira, frite o bacon até ficar crocante",
+                    "Em uma tigela, bata os ovos com o queijo parmesão",
+                    "Escorra a pasta e adicione à frigideira com o bacon",
+                    "Desligue o fogo e adicione a mistura de ovos, mexendo rapidamente",
+                    "Sirva imediatamente com pimenta preta por cima"
+                ],
+                tags: ["Italiana", "Pasta", "Cremoso"]
+            },
+            {
+                id: 2,
+                title: "Bruschetta de Tomate",
+                category: "entrada",
+                image: "https://images.unsplash.com/photo-1572445271230-a78b5944a659?w=400&h=300&fit=crop",
+                time: "15 min",
+                difficulty: "Fácil",
+                servings: "6 pessoas",
+                description: "Entrada italiana refrescante com tomates frescos e manjericão.",
+                ingredients: [
+                    "6 fatias de pão italiano",
+                    "4 tomates maduros",
+                    "2 dentes de alho",
+                    "Folhas de manjericão",
+                    "Azeite de oliva",
+                    "Sal e pimenta a gosto"
+                ],
+                instructions: [
+                    "Toaste as fatias de pão até ficarem douradas",
+                    "Pique os tomates em cubos pequenos",
+                    "Amasse o alho e misture com os tomates",
+                    "Adicione o manjericão picado e tempere com sal e pimenta",
+                    "Regue com azeite de oliva",
+                    "Distribua a mistura sobre as fatias de pão"
+                ],
+                tags: ["Italiana", "Vegetariana", "Fresco"]
+            },
+            {
+                id: 3,
+                title: "Tiramisu",
+                category: "sobremesa",
+                image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&h=300&fit=crop",
+                time: "30 min + 4h gelar",
+                difficulty: "Médio",
+                servings: "8 pessoas",
+                description: "Sobremesa italiana clássica com café, mascarpone e cacau.",
+                ingredients: [
+                    "6 ovos",
+                    "500g de mascarpone",
+                    "200g de açúcar",
+                    "200g de biscoitos tipo champanhe",
+                    "2 xícaras de café forte",
+                    "Cacau em pó para polvilhar"
+                ],
+                instructions: [
+                    "Separe as claras das gemas",
+                    "Bata as gemas com metade do açúcar até ficar claro",
+                    "Misture o mascarpone às gemas batidas",
+                    "Bata as claras com o restante do açúcar até formar picos firmes",
+                    "Dobre as claras na mistura de mascarpone",
+                    "Mergulhe os biscoitos no café e forre o fundo de uma forma",
+                    "Cubra com metade da mistura de mascarpone",
+                    "Repita as camadas e polvilhe com cacau",
+                    "Leve à geladeira por pelo menos 4 horas"
+                ],
+                tags: ["Italiana", "Café", "Cremoso"]
+            },
+            {
+                id: 4,
+                title: "Caipirinha",
+                category: "bebida",
+                image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=300&fit=crop",
+                time: "5 min",
+                difficulty: "Fácil",
+                servings: "1 pessoa",
+                description: "Cocktail brasileiro tradicional com cachaça, limão e açúcar.",
+                ingredients: [
+                    "1 limão tahiti",
+                    "2 colheres de açúcar",
+                    "60ml de cachaça",
+                    "Gelo a gosto"
+                ],
+                instructions: [
+                    "Corte o limão em rodelas e coloque no copo",
+                    "Adicione o açúcar e amasse levemente",
+                    "Adicione a cachaça e misture",
+                    "Complete com gelo e mexa novamente",
+                    "Sirva imediatamente"
+                ],
+                tags: ["Brasileira", "Alcoólica", "Refrescante"]
+            },
+            {
+                id: 5,
+                title: "Risoto de Funghi",
+                category: "prato-principal",
+                image: "https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=400&h=300&fit=crop",
+                time: "35 min",
+                difficulty: "Médio",
+                servings: "4 pessoas",
+                description: "Risoto cremoso com cogumelos e queijo parmesão.",
+                ingredients: [
+                    "300g de arroz arbóreo",
+                    "400g de cogumelos variados",
+                    "1 cebola picada",
+                    "2 dentes de alho",
+                    "1L de caldo de legumes",
+                    "100g de queijo parmesão",
+                    "50g de manteiga",
+                    "Azeite de oliva",
+                    "Sal e pimenta a gosto"
+                ],
+                instructions: [
+                    "Refogue a cebola e o alho no azeite",
+                    "Adicione os cogumelos e refogue até murcharem",
+                    "Adicione o arroz e mexa até ficar translúcido",
+                    "Adicione o caldo quente, uma concha por vez",
+                    "Continue mexendo até o arroz ficar cremoso",
+                    "Adicione a manteiga e o queijo parmesão",
+                    "Ajuste o sal e a pimenta"
+                ],
+                tags: ["Italiana", "Vegetariana", "Cremoso"]
+            },
+            {
+                id: 6,
+                title: "Panna Cotta",
+                category: "sobremesa",
+                image: "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&h=300&fit=crop",
+                time: "20 min + 4h gelar",
+                difficulty: "Fácil",
+                servings: "6 pessoas",
+                description: "Sobremesa italiana suave e cremosa com calda de frutas.",
+                ingredients: [
+                    "500ml de creme de leite",
+                    "100g de açúcar",
+                    "2 folhas de gelatina",
+                    "1 baunilha",
+                    "Calda de frutas vermelhas"
+                ],
+                instructions: [
+                    "Hidrate a gelatina em água fria",
+                    "Aqueça o creme de leite com o açúcar e a baunilha",
+                    "Adicione a gelatina hidratada e mexa até dissolver",
+                    "Distribua em taças individuais",
+                    "Leve à geladeira por 4 horas",
+                    "Sirva com calda de frutas vermelhas"
+                ],
+                tags: ["Italiana", "Cremoso", "Elegante"]
+            }
+        ];
+
+        let currentFilter = 'all';
+        let filteredRecipes = [...recipes];
+
+        // Função para renderizar as receitas
+        function renderRecipes() {
+            const grid = document.getElementById('recipesGrid');
+            grid.innerHTML = '';
+
+            filteredRecipes.forEach(recipe => {
+                const card = document.createElement('div');
+                card.className = 'recipe-card';
+                card.onclick = () => openModal(recipe);
+
+                card.innerHTML = `
+                    <img src="${recipe.image}" alt="${recipe.title}" class="recipe-image">
+                    <div class="recipe-content">
+                        <h3 class="recipe-title">${recipe.title}</h3>
+                        <div class="recipe-meta">
+                            <span>⏱️ ${recipe.time}</span>
+                            <span>👥 ${recipe.servings}</span>
+                            <span>📊 ${recipe.difficulty}</span>
+                        </div>
+                        <p class="recipe-description">${recipe.description}</p>
+                        <div class="recipe-tags">
+                            ${recipe.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // Função para filtrar receitas
+        function filterRecipes(category) {
+            currentFilter = category;
+            
+            // Atualizar botões ativos
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Filtrar receitas
+            if (category === 'all') {
+                filteredRecipes = [...recipes];
+            } else {
+                filteredRecipes = recipes.filter(recipe => recipe.category === category);
+            }
+
+            renderRecipes();
+        }
+
+        // Função para buscar receitas
+        function searchRecipes() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (searchTerm === '') {
+                filteredRecipes = currentFilter === 'all' ? [...recipes] : recipes.filter(recipe => recipe.category === currentFilter);
+            } else {
+                filteredRecipes = recipes.filter(recipe => 
+                    recipe.title.toLowerCase().includes(searchTerm) ||
+                    recipe.description.toLowerCase().includes(searchTerm) ||
+                    recipe.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            renderRecipes();
+        }
+
+        // Função para abrir modal
+        function openModal(recipe) {
+            const modal = document.getElementById('recipeModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+
+            modalTitle.textContent = recipe.title;
+
+            modalBody.innerHTML = `
+                <div class="recipe-details">
+                    <div class="ingredients">
+                        <h3>🍽️ Ingredientes</h3>
+                        <ul>
+                            ${recipe.ingredients.map(ingredient => `<li>${ingredient}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="instructions">
+                        <h3>👨‍🍳 Modo de Preparo</h3>
+                        <ol>
+                            ${recipe.instructions.map(instruction => `<li>${instruction}</li>`).join('')}
+                        </ol>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <p><strong>Tempo:</strong> ${recipe.time} | <strong>Dificuldade:</strong> ${recipe.difficulty} | <strong>Porções:</strong> ${recipe.servings}</p>
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        // Função para fechar modal
+        function closeModal() {
+            document.getElementById('recipeModal').style.display = 'none';
+        }
+
+        // Fechar modal ao clicar fora dele
+        window.onclick = function(event) {
+            const modal = document.getElementById('recipeModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Buscar ao pressionar Enter
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchRecipes();
+            }
+        });
+
+        // Inicializar o app
+        renderRecipes();
+    </script>
+</body>
+</html> 
